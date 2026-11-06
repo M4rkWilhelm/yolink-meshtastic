@@ -28,3 +28,6 @@ reference/
 # Local notes and photos (node databases, possible GPS metadata)
 heltec_info.txt
 *.jpg
+
+# SWD adapter board: being reworked (component rotations), not published yet
+hardware/swd-adapter/
