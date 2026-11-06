@@ -311,7 +311,6 @@ This firmware transmits on Meshtastic frequencies and can be set up to **+20 dBm
 | `firmware/` envs `ys7805_stress*` | Bench stress tests from the crash investigation; never transmit, not for use |
 | `firmware/` envs `ys7805_waketest*` | Bench tests that wake 20 times a second, for measuring wake-up cost; not for use |
 | `firmware/` env `ys7805_probe` | Bench build for splitting sleep current between the boards; not for use |
-| `contrib/` | Fixes found here, prepared for upstream STM32duino |
 | `tools/bin2elf.py`, `disasm.py`, `gpio_calls.py`, `live_watch.py` | Reverse-engineering helpers for the stock firmware |
 | `HARDWARE.md` | Pinout and reverse-engineering notes |
 

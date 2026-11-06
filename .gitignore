@@ -16,11 +16,8 @@ __pycache__/
 # FCC exhibits (YoLink documents): link to them, don't redistribute
 fcc/
 
-# Full copies of upstream files used to build the contrib patches (BSD, ST)
-contrib/*/*.orig
-contrib/stm32duino-core-s76s-hse/variant_ACSIP_S76S.h
-contrib/stm32duino-lowpower-stop-systick/low_power.c
-contrib/stm32duino-lowpower-stop-systick/issue123-screenshot.png
+# Upstream contribution drafts (issues, PR text, patches, repro): local only
+contrib/
 
 # ST datasheets/errata: link, don't redistribute
 reference/
