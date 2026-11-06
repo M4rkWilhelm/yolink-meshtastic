@@ -348,7 +348,9 @@ are still in place.
   it the PIR circuit. With ~18 status packets a day that
   works out to roughly 2.5 years on alkaline AAs, less with frequent motion or
   in the cold (lithium AAs hold up better below freezing). See
-  [HARDWARE.md](HARDWARE.md#power).
+  [HARDWARE.md](HARDWARE.md#power). With lithium AAs the reported battery level
+  stays near 100% for most of their life and then drops quickly: their voltage is
+  almost flat until they're nearly empty.
 - **No remote configuration** over the mesh; settings need the serial console.
 
 ## Radio regulations

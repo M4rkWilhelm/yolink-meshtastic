@@ -166,6 +166,7 @@ static bool buttonHeld(uint32_t ms) {
 // sleeps, to reproduce a rare hang seen under heavy PIR activity. It never
 // transmits. g_status.wakeups counts completed rounds.
 #include <HardwareTimer.h>
+static void stopFor(uint32_t ms);
 static void stressTest() {
     static HardwareTimer timer(TIM6);
     // Each tick fakes a PB6 edge: a software trigger on EXTI line 6 runs the
@@ -185,11 +186,8 @@ static void stressTest() {
         g_status.stressPhase = 4;
         motion::applyGain(round & 1 ? 35 : 20);  // also toggles the gain pins
         timer.pause();
-        IWatchdog.reload();
         g_status.stressPhase = 5;
-        HAL_SuspendTick();
-        LowPower.deepSleep(20 + round % 50);
-        HAL_ResumeTick();
+        stopFor(20 + round % 50);  // same sleep path as normal operation
         g_status.stressPhase = 6;
         g_status.wakeups = ++round;
     }
@@ -305,6 +303,19 @@ void setup() {
 
     recordTx(radio::sendNodeInfo());
     g_status.magic = 0x534D4C59;  // "YLMS"
+
+#ifdef YL_PROBE
+    // Bench probe (env ys7805_probe): motion off and PB6 (PIR comparator) set
+    // to analog so it can't float when the PIR board is unplugged; wake once a
+    // second (cheap, and keeps the chip easy to reflash). For splitting sleep
+    // current between the main board and the PIR board.
+    detachInterrupt(digitalPinToInterrupt(PIN_PIR));
+    pinMode(PIN_PIR, INPUT_ANALOG);
+    for (;;) {
+        stopFor(1000);
+        g_status.wakeups = g_status.wakeups + 1;
+    }
+#endif
 
 #ifdef YL_WAKETEST
     // Bench test (envs ys7805_waketest*): wake 20 times a second and do

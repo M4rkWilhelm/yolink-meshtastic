@@ -40,6 +40,55 @@ by static analysis, with key points confirmed live under SWD (2026-11-03).
 | SWD | PA13 SWDIO / PA14 SWCLK | | header pads 3 / 2 |
 | Factory console (LPUART1, AF6) | PA13 RX / PA14 TX, 57600 8N1 | shares SWD pins | MspInit 0x08006B20 |
 
+## YL09 module pins (YoSmart datasheet)
+YoSmart's YL09 product specification (originally
+`yosmart.com/wp-content/uploads/userguide/YL09_SIP_Product-Specification.pdf`, now
+gone; mirrored in [dynacylabs/yolink-re](https://github.com/dynacylabs/yolink-re/tree/HEAD/chips/YL09))
+lists the module's 62 pads. Points that matter here:
+- Pad 36 `PA1_RF_FEM_CPS` and pad 30 `RXTX/RFMOD` (the SX1276's TX indicator) leave the
+  module, so the RF front end (switch or PA/LNA) is most likely on the main board by the
+  antenna. Candidate for the remaining ~75 µA of sleep current (see Power).
+- Pad 60 `PB8_IO_LED_FCT` (factory-test LED or test point; unused, left analog).
+- `PB6_SCL` / `PB7_SDA`: I2C-capable names; on the YS7805 PB6 is the PIR comparator and
+  PB7 feeds the PIR board.
+- Operating voltage given only as "3.3V" (nominal). Fresh lithium AAs give ~3.6 V.
+
+Pads (module: 13 × 11 × 1.1 mm LGA; "use on YS7805" from our own mapping):
+
+| Pad | Signal | Use on YS7805 | | Pad | Signal | Use on YS7805 |
+|---|---|---|---|---|---|---|
+| 1 | NC | | | 32 | GND | |
+| 2, 3 | GND | | | 33 | RF_ANT | antenna |
+| 4 | PC0 | | | 34, 35 | GND | |
+| 5 | PC1 | PIR analog (ADC ch 11) | | 36 | PA1 (RF_FEM_CPS) | RF switch control, TX = low |
+| 6 | PC2 | PIR gain select A | | 37 | GND | |
+| 7 | PC3 | PIR gain select B | | 38 | NC | |
+| 8–11 | NC | | | 39 | GND | |
+| 12 | NRESET | header pad 5 | | 40 | NC | |
+| 13 | PA0 | | | 41 | GND | |
+| 14, 15 | GND | | | 42 | NC | |
+| 16 | PA2 (TXD_A) | button (pull-up) | | 43, 44 | VDD | battery + |
+| 17 | PA3 (RXD_A) | | | 45 | PA8 (USART1_CK) | |
+| 18 | PA4 (SPI1_NSS) | | | 46 | PA10 (USART1_RX) | |
+| 19 | PA5 (SPI1_SCK) | | | 47 | PA9 (USART1_TX) | |
+| 20 | PA6 (SPI1_MISO) | | | 48 | PA11 (USART1_CTS) | |
+| 21 | PA7 (SPI1_MOSI) | | | 49 | PA12 (USART1_RTS) | |
+| 22 | PC4 | | | 50 | PA13 (SWDIO) | header pad 3; LPUART1 RX |
+| 23 | PC5 | | | 51 | PA14 (SWCLK) | header pad 2; LPUART1 TX |
+| 24 | PB0 (IO_INT1) | | | 52 | PC10 | |
+| 25 | PB1 (IO_INT2) | | | 53 | PC11 | |
+| 26 | PC6 | | | 54 | PC12 | |
+| 27 | PC7 | | | 55 | PD2 | green LED (active low) |
+| 28 | PC8 | | | 56 | PB5 | red LED (active low) |
+| 29 | PC9 | | | 57 | PB6 (SCL) | PIR comparator output |
+| 30 | RXTX/RFMOD | (SX1276 TX indicator) | | 58 | PB7 (SDA) | feeds the PIR board |
+| 31 | GND | | | 59 | BOOT0 | |
+| | | | | 60 | PB8 (IO_LED_FCT) | |
+| | | | | 61, 62 | GND | |
+
+The SX1276 connects inside the module (SPI2 on PB12–PB15, reset PB10, DIO0/1/2 on
+PB11/PC13/PB9), so those signals don't appear on the pads.
+
 ## Watchdog (stock firmware)
 - Stock enables the IWDG at start-up (HAL_IWDG_Init 0x08005158, called from
   0x08008EAC via 0x0800F824): prescaler /256, reload 0x500 = 1280, window 0x500, so
@@ -104,8 +153,17 @@ Measured 2026-11-05, 2×AA alkaline at 2.9 V, Fluke 8060A in series with the bat
 PA1 high costs about 35 µA through the RF switch's control input. The firmware now
 holds it low whenever the radio isn't receiving (it never does), confirmed in
 firmware at 90–100 µA with transmissions still received normally. The SX1276 itself
-is in sleep (RegOpMode 0x88). Most of the remaining ~80 µA is presumably the PIR
-board (~15 µA of it via PB7).
+is in sleep (RegOpMode 0x88).
+
+Where the rest goes (`ys7805_probe` build: motion off, PB6 analog, 1 wake/s):
+PIR daughterboard unplugged, 80–85 µA (about 75–80 µA after the probe's own wakes);
+so the PIR board takes only ~10–15 µA (≈ the PB7 effect) and **~75 µA is on the main
+board**. Not from any pin the firmware controls: PC2 high (other gain pin) changed
+nothing, and setting the radio pins (PB10–PB15, PC13) to analog raised it to
+310–360 µA (floating SPI/control inputs on the SX1276), so their driven levels are
+already the low state. Stock reads no external battery divider (ADC channels used:
+PC1, VREFINT, temperature only). The source is likely always-on hardware on the main
+board or module (e.g. RF front end); finding it needs board-level tracing.
 
 **Stock firmware, same setup: 140–150 µA** (steady, no spikes, with its hub out of
 reach). Ours sleeps about a third lower, and the hardware floor is at or below 90 µA.
@@ -127,6 +185,10 @@ after every wake from Stop, apparently for its UART-wake feature. The firmware s
 that one call (it overrides the HAL's weak `HAL_Delay`; `YL_KEEP_WAKE_DELAY`
 restores it), which also makes it react 10 ms sooner. With the delay gone, the clock
 choice is worth only ~0.2 µA, so the firmware stays on the 32 MHz crystal.
+
+Soak test with the delay skipped (`ys7805_stress_release`, debugger detached, started
+from a power-on on fresh Energizer lithium AAs at 3.62 V open-circuit): 19.5 h,
+450,675 rounds, no faults, no watchdog resets, VDD still 3.59 V.
 
 ## Stability investigation (solved)
 
