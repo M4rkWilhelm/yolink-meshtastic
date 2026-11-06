@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Log packets a Meshtastic node (e.g. a Heltec on USB) receives from the sensor.
 
-Usage: heltec_listen.py [--port /dev/ttyUSB0] [--node 37680b40] [--minutes 15]
+Usage: heltec_listen.py --node <sensor node id, hex> [--port /dev/ttyUSB0] [--minutes 15]
+(The sensor's node id is in its setup-console banner, e.g. "YoLink Motion !1a2b3c4d", without the '!'.)
 Prints one line per packet from that node: time, port, text/name, RSSI, SNR, hops.
 """
 import argparse
@@ -15,7 +16,7 @@ from pubsub import pub
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", default="/dev/ttyUSB0")
-    ap.add_argument("--node", default="37680b40", help="sender node id (hex, no '!')")
+    ap.add_argument("--node", required=True, help="sender node id (hex, no '!')")
     ap.add_argument("--minutes", type=float, default=15)
     args = ap.parse_args()
     want = int(args.node, 16)

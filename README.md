@@ -30,7 +30,7 @@ Early but working (November 2026).
 | Stop-mode sleep, wake on motion or button | ✅ tested |
 | Temperature and battery telemetry | ✅ decoded by the Heltec V3 |
 | PIR sensitivity levels and hot-weather compensation | ✅ gain steps measured; compensation tested with a heat gun |
-| Watchdog and crash recovery | ✅ tested (simulated hang and forced fault both recover) |
+| Watchdog and crash recovery | ✅ tested (simulated hang and forced fault both recover); 19.5 h stress test with no crashes |
 | Battery life | 🟡 sleep current measured (~95 µA); estimate about 2.5 years on alkaline AAs before motion alerts, not yet confirmed by a long run |
 | Regions | US (902–928 MHz) only |
 
@@ -107,6 +107,8 @@ Full reverse-engineering notes: [HARDWARE.md](HARDWARE.md).
   1.27 mm ribbon cable or thin wire soldered in, or a 1.27 mm header.
 - For configuration: a **3.3 V USB-serial adapter** (FT232, CP2102, CH340...).
 - A Meshtastic node to receive the alerts.
+- 2 × AA batteries. **Lithium** (e.g. Energizer Ultimate Lithium) for outdoor
+  use: they keep working well below freezing, where alkalines fade.
 
 **Software** (tested on Linux)
 - OpenOCD 0.12 or newer, Python 3.10+, git.
@@ -117,7 +119,7 @@ Full reverse-engineering notes: [HARDWARE.md](HARDWARE.md).
 
 ```sh
 sudo apt install openocd stlink-tools python3-venv git    # Debian/Ubuntu
-git clone <this repository> yolink-meshtastic
+git clone https://github.com/M4rkWilhelm/yolink-meshtastic.git
 cd yolink-meshtastic
 python3 -m venv .venv
 .venv/bin/pip install platformio pyserial
@@ -191,11 +193,6 @@ tools/flash.sh firmware/.pio/build/ys7805/firmware.elf
 
 It writes both flash banks, checks every byte, and restarts the sensor. It must
 print `verified ... bytes`; anything else is a failure.
-
-**Then remove and reinsert the batteries** if the sensor ever ran the debug
-build (`ys7805_debug`). That build turns on the chip's "debug during sleep"
-setting, which survives resets and re-flashing and is only cleared by a power
-cycle. Until then the sensor sleeps less deeply and drains its batteries faster.
 
 After a successful flash, the green LED blinks once (radio OK). Three red
 blinks mean the radio didn't start; see [Troubleshooting](#troubleshooting).
@@ -322,7 +319,7 @@ are still in place.
 
 | Symptom | Likely cause |
 |---|---|
-| Sensor sends NodeInfo and telemetry at odd times | It restarted after a crash or watchdog reset (see [Known issues](#known-issues)). Occasional is expected for now; frequent, please report |
+| Sensor sends NodeInfo and telemetry at odd times | It restarted: watchdog reset, crash, or a battery contact briefly lost (bumped holder). Please report if it happens often |
 | `connect.sh`: "did not connect" | Reset not held, wiring, or SWDIO/SWCLK swapped. Check continuity pad → ST-Link pin |
 | `connect.sh` works, later steps "can't read the chip" | The jumper was disturbed while being removed and the stock firmware started. Repeat step 4 |
 | `flash.sh`: VERIFY FAILED | Don't use the sensor; reflash. Make sure `connect.sh` is current (it uses the dual-bank flash config) |
@@ -336,7 +333,8 @@ are still in place.
 
 - **Fixed: rare crash.** Early builds could crash now and then, traced to a
   debug setting (debug-in-Stop) that a debug build or session leaves on until
-  power-off. The firmware now turns it off at every start. Details in
+  power-off. The firmware now turns it off at every start, and a 19.5-hour
+  stress test since then had no crashes. Details in
   [HARDWARE.md](HARDWARE.md#stability-investigation-solved). If your sensor
   reboots often (repeated NodeInfo packets), please report it.
 - **App display:** a Meshtastic node (Heltec V3, firmware 2.7.11) receives and
@@ -344,8 +342,9 @@ are still in place.
   messages isn't verified yet.
 - **US region only.** Other regions need their frequency plans added.
 - **Battery life estimated, not proven.** Sleep current is about 95 µA
-  (measured; YoLink's own firmware draws about 145 µA on the same board), most of
-  it the PIR circuit. With ~18 status packets a day that
+  (measured; YoLink's own firmware draws about 145 µA on the same board). About
+  75 µA of it is always-on hardware on the main board that no firmware setting
+  controls; the PIR circuit takes only 10–15 µA. With ~18 status packets a day that
   works out to roughly 2.5 years on alkaline AAs, less with frequent motion or
   in the cold (lithium AAs hold up better below freezing). See
   [HARDWARE.md](HARDWARE.md#power). With lithium AAs the reported battery level
@@ -377,6 +376,9 @@ the lowest the radio's PA_BOOST output supports.
 | `tools/watch_status.py`, `ramlog.py`, `sx1276_regs.py`, `sx1276_txtest.py`, `ocd.py`, `pir_trial.py` | Debugging helpers over SWD (debug build: `pio run -e ys7805_debug`) |
 | `firmware/` envs `ys7805_stress*` | Bench stress tests from the crash investigation; never transmit, not for use |
 | `firmware/` envs `ys7805_waketest*` | Bench tests that wake 20 times a second, for measuring wake-up cost; not for use |
+| `firmware/` env `ys7805_probe` | Bench build for splitting sleep current between the boards; not for use |
+| `hardware/swd-adapter/` | Optional KiCad board for a solid header connection, with JLCPCB fabrication files |
+| `contrib/` | Fixes found here, prepared for upstream STM32duino |
 | `tools/bin2elf.py`, `disasm.py`, `gpio_calls.py`, `live_watch.py` | Reverse-engineering helpers for the stock firmware |
 | `HARDWARE.md` | Pinout and reverse-engineering notes |
 
@@ -392,6 +394,10 @@ vendored in `firmware/lib/CryptoAesCtr`). Packet formats follow the published
 [Meshtastic protobufs](https://github.com/meshtastic/protobufs).
 
 This project's own code is licensed under the [MIT License](LICENSE).
+
+Upstream contributions from this work: STM32duino Low Power
+[issue #135](https://github.com/stm32duino/STM32LowPower/issues/135) (deep sleep
+broken while debug-in-Stop is set) and its fix.
 
 The firmware also links third-party code under its own licenses: RadioLib and
 rweather/Crypto (MIT); the STM32 HAL drivers and the STM32duino Low Power and RTC
